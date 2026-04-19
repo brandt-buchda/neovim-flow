@@ -1,8 +1,10 @@
 local M = {}
 
-function M.spawn(_worktree_path)
+function M.spawn(_worktree_path, opts)
+  opts = opts or {}
   vim.cmd('botright vsplit')
-  vim.cmd('terminal claude')
+  local cmd = opts.resume and 'terminal claude --continue' or 'terminal claude'
+  vim.cmd(cmd)
   vim.t.neovim_flow_term_buf = vim.api.nvim_get_current_buf()
   vim.cmd('startinsert')
   return vim.t.neovim_flow_term_buf

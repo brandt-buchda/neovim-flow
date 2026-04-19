@@ -23,6 +23,10 @@ function M.setup(_)
     M.list()
   end, { desc = 'neovim-flow: list agent tabs' })
 
+  vim.api.nvim_create_user_command('NFResume', function()
+    M.resume()
+  end, { desc = 'neovim-flow: resume an existing worktree' })
+
   vim.api.nvim_create_user_command('NFFocus', function()
     agent.focus()
   end, { desc = 'neovim-flow: focus agent terminal' })
@@ -32,11 +36,19 @@ function M.setup(_)
   end, { desc = 'neovim-flow: back to code window' })
 end
 
-local function do_create(input)
-  if not input or input == '' then return end
-  local wt, err = worktree.create(input)
-  if not wt then
-    util.err(err)
+local function tab_for_worktree(path)
+  for _, tp in ipairs(vim.api.nvim_list_tabpages()) do
+    local ok, val = pcall(vim.api.nvim_tabpage_get_var, tp, 'neovim_flow_worktree')
+    if ok and val == path then return tp end
+  end
+  return nil
+end
+
+local function open_tab(wt, resume)
+  local existing_tab = tab_for_worktree(wt.path)
+  if existing_tab then
+    vim.api.nvim_set_current_tabpage(existing_tab)
+    agent.focus()
     return
   end
   vim.cmd('tabnew')
@@ -46,8 +58,19 @@ local function do_create(input)
   vim.t.neovim_flow_branch = wt.branch
   vim.t.neovim_flow_root = wt.root
   vim.cmd('Explore')
-  agent.spawn(wt.path)
-  util.notify('agent tab "' .. wt.name .. '" ready (' .. wt.branch .. ')')
+  agent.spawn(wt.path, { resume = resume })
+  local verb = resume and 'resumed' or 'ready'
+  util.notify('agent tab "' .. wt.name .. '" ' .. verb .. ' (' .. wt.branch .. ')')
+end
+
+local function do_create(input)
+  if not input or input == '' then return end
+  local wt, err = worktree.create(input)
+  if not wt then
+    util.err(err)
+    return
+  end
+  open_tab(wt, wt.existed)
 end
 
 function M.new(name)
@@ -107,6 +130,31 @@ function M.list()
     format_item = function(e) return e.label end,
   }, function(choice)
     if choice then vim.api.nvim_set_current_tabpage(choice.tabpage) end
+  end)
+end
+
+function M.resume()
+  local root = util.repo_root()
+  if not root then
+    util.err('not a git repository')
+    return
+  end
+  local agents = worktree.list_agents(root)
+  local orphans = {}
+  for _, wt in ipairs(agents) do
+    if not tab_for_worktree(wt.path) then
+      table.insert(orphans, wt)
+    end
+  end
+  if #orphans == 0 then
+    util.notify('no worktrees to resume')
+    return
+  end
+  vim.ui.select(orphans, {
+    prompt = 'Resume worktree:',
+    format_item = function(wt) return ('%s  [%s]'):format(wt.name, wt.branch) end,
+  }, function(choice)
+    if choice then open_tab(choice, true) end
   end)
 end
 

@@ -2,6 +2,23 @@ local util = require('neovim-flow.util')
 
 local M = {}
 
+local function branch_exists(root, branch)
+  local r = util.run({ 'git', 'show-ref', '--verify', '--quiet', 'refs/heads/' .. branch }, { cwd = root })
+  return r.code == 0
+end
+
+local function remote_branch_exists(root, branch)
+  local r = util.run({ 'git', 'show-ref', '--verify', '--quiet', 'refs/remotes/origin/' .. branch }, { cwd = root })
+  return r.code == 0
+end
+
+local function find_worktree(root, path)
+  for _, wt in ipairs(M.list(root)) do
+    if wt.path == path then return wt end
+  end
+  return nil
+end
+
 function M.create(name)
   local root = util.repo_root()
   if not root then
@@ -15,25 +32,42 @@ function M.create(name)
 
   util.ensure_exclude(root, '.worktrees/')
 
+  local path = root .. '/.worktrees/' .. clean
+  local branch = 'agent/' .. clean
+
+  local existing = find_worktree(root, path)
+  if existing then
+    return {
+      path = path,
+      branch = (existing.branch or branch):gsub('^refs/heads/', ''),
+      name = clean,
+      root = root,
+      existed = true,
+    }
+  end
+
   util.notify('fetching origin...')
   local fetch = util.run({ 'git', 'fetch', 'origin' }, { cwd = root })
   if fetch.code ~= 0 then
     return nil, 'git fetch failed: ' .. (fetch.stderr or '')
   end
 
-  local path = root .. '/.worktrees/' .. clean
-  local branch = 'agent/' .. clean
-
-  util.notify('creating worktree ' .. clean .. '...')
-  local add = util.run(
-    { 'git', 'worktree', 'add', '-b', branch, path, 'origin/main' },
-    { cwd = root }
-  )
+  local add
+  if branch_exists(root, branch) then
+    util.notify('attaching worktree to existing branch ' .. branch .. '...')
+    add = util.run({ 'git', 'worktree', 'add', path, branch }, { cwd = root })
+  elseif remote_branch_exists(root, branch) then
+    util.notify('creating worktree from origin/' .. branch .. '...')
+    add = util.run({ 'git', 'worktree', 'add', '-b', branch, path, 'origin/' .. branch }, { cwd = root })
+  else
+    util.notify('creating worktree ' .. clean .. ' from origin/main...')
+    add = util.run({ 'git', 'worktree', 'add', '-b', branch, path, 'origin/main' }, { cwd = root })
+  end
   if add.code ~= 0 then
     return nil, 'worktree add failed: ' .. (add.stderr or '')
   end
 
-  return { path = path, branch = branch, name = clean, root = root }
+  return { path = path, branch = branch, name = clean, root = root, existed = false }
 end
 
 function M.remove(path, root)
@@ -64,6 +98,26 @@ function M.list(root)
   end
   if current then table.insert(worktrees, current) end
   return worktrees
+end
+
+function M.list_agents(root)
+  root = root or util.repo_root()
+  if not root then return {} end
+  local prefix = root .. '/.worktrees/'
+  local agents = {}
+  for _, wt in ipairs(M.list(root)) do
+    if wt.path:sub(1, #prefix) == prefix then
+      local name = wt.path:sub(#prefix + 1)
+      local branch = (wt.branch or ''):gsub('^refs/heads/', '')
+      table.insert(agents, {
+        path = wt.path,
+        name = name,
+        branch = branch,
+        root = root,
+      })
+    end
+  end
+  return agents
 end
 
 return M
