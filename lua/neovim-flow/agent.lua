@@ -8,11 +8,27 @@ local function has_session(cwd)
   return #vim.fn.glob(dir .. '/*.jsonl', false, true) > 0
 end
 
+local function mcp_config_path(worktree_path)
+  local candidates = {
+    worktree_path and (worktree_path .. '/.mcp.json') or nil,
+    vim.t.neovim_flow_root and (vim.t.neovim_flow_root .. '/.mcp.json') or nil,
+  }
+  for _, p in ipairs(candidates) do
+    if p and vim.fn.filereadable(p) == 1 then return p end
+  end
+  return nil
+end
+
 function M.spawn(worktree_path, opts)
   opts = opts or {}
   vim.cmd('botright vsplit')
   local resume = opts.resume and worktree_path and has_session(worktree_path)
-  vim.cmd(resume and 'terminal claude --continue' or 'terminal claude')
+  local cmd = resume and 'claude --continue' or 'claude'
+  local mcp = mcp_config_path(worktree_path)
+  if mcp then
+    cmd = cmd .. ' --mcp-config ' .. vim.fn.shellescape(mcp)
+  end
+  vim.cmd('terminal ' .. cmd)
   vim.t.neovim_flow_term_buf = vim.api.nvim_get_current_buf()
   vim.cmd('startinsert')
   return vim.t.neovim_flow_term_buf
