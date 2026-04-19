@@ -5,15 +5,18 @@ local servers = { 'basedpyright', 'marksman', 'jsonls' }
 M.specs = {
   { 'williamboman/mason.nvim', config = true },
   {
-    'williamboman/mason-lspconfig.nvim',
-    dependencies = { 'williamboman/mason.nvim' },
-    opts = {
-      ensure_installed = servers,
-      automatic_enable = true,
+    'neovim/nvim-lspconfig',
+    dependencies = {
+      'williamboman/mason.nvim',
+      {
+        'williamboman/mason-lspconfig.nvim',
+        opts = {
+          ensure_installed = servers,
+          automatic_enable = true,
+        },
+      },
     },
-    config = function(_, opts)
-      require('mason-lspconfig').setup(opts)
-
+    config = function()
       for _, name in ipairs(servers) do
         vim.lsp.enable(name)
       end
