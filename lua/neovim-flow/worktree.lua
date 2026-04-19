@@ -19,6 +19,14 @@ local function find_worktree(root, path)
   return nil
 end
 
+local function find_worktree_by_branch(root, branch)
+  local ref = 'refs/heads/' .. branch
+  for _, wt in ipairs(M.list(root)) do
+    if wt.branch == ref or wt.branch == branch then return wt end
+  end
+  return nil
+end
+
 function M.create(name)
   local root = util.repo_root()
   if not root then
@@ -50,6 +58,18 @@ function M.create(name)
   local fetch = util.run({ 'git', 'fetch', 'origin' }, { cwd = root })
   if fetch.code ~= 0 then
     return nil, 'git fetch failed: ' .. (fetch.stderr or '')
+  end
+
+  local elsewhere = find_worktree_by_branch(root, branch)
+  if elsewhere then
+    util.notify('reusing existing worktree at ' .. elsewhere.path)
+    return {
+      path = elsewhere.path,
+      branch = branch,
+      name = clean,
+      root = root,
+      existed = true,
+    }
   end
 
   local add
