@@ -33,7 +33,7 @@ function M.create(name)
   util.ensure_exclude(root, '.worktrees/')
 
   local path = root .. '/.worktrees/' .. clean
-  local branch = 'agent/' .. clean
+  local branch = clean
 
   local existing = find_worktree(root, path)
   if existing then
@@ -53,6 +53,7 @@ function M.create(name)
   end
 
   local add
+  local pushed = false
   if branch_exists(root, branch) then
     util.notify('attaching worktree to existing branch ' .. branch .. '...')
     add = util.run({ 'git', 'worktree', 'add', path, branch }, { cwd = root })
@@ -60,11 +61,20 @@ function M.create(name)
     util.notify('creating worktree from origin/' .. branch .. '...')
     add = util.run({ 'git', 'worktree', 'add', '-b', branch, path, 'origin/' .. branch }, { cwd = root })
   else
-    util.notify('creating worktree ' .. clean .. ' from origin/main...')
+    util.notify('creating branch ' .. branch .. ' from origin/main...')
     add = util.run({ 'git', 'worktree', 'add', '-b', branch, path, 'origin/main' }, { cwd = root })
+    pushed = true
   end
   if add.code ~= 0 then
     return nil, 'worktree add failed: ' .. (add.stderr or '')
+  end
+
+  if pushed then
+    util.notify('pushing ' .. branch .. ' to origin...')
+    local push = util.run({ 'git', 'push', '-u', 'origin', branch }, { cwd = path })
+    if push.code ~= 0 then
+      util.err('push failed: ' .. (push.stderr or ''))
+    end
   end
 
   return { path = path, branch = branch, name = clean, root = root, existed = false }
