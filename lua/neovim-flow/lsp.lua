@@ -9,16 +9,13 @@ M.specs = {
     dependencies = { 'williamboman/mason.nvim' },
     opts = {
       ensure_installed = servers,
-      automatic_installation = true,
+      automatic_enable = true,
     },
-  },
-  {
-    'neovim/nvim-lspconfig',
-    dependencies = { 'williamboman/mason-lspconfig.nvim' },
-    config = function()
-      local lsp = require('lspconfig')
+    config = function(_, opts)
+      require('mason-lspconfig').setup(opts)
+
       for _, name in ipairs(servers) do
-        lsp[name].setup({})
+        vim.lsp.enable(name)
       end
 
       vim.api.nvim_create_autocmd('LspAttach', {
