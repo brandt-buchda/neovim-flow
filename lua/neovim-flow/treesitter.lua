@@ -26,74 +26,74 @@ local injection_extensions = [[
  .
  (expression_statement
    (assignment
-     right: (string) @injection.content))
+     right: (string (string_content) @injection.content)))
  (#lua-match? @injection.language "language=[%w_]+")
  (#gsub! @injection.language ".*language=([%w_]+).*" "%1")
- (#set! injection.include-children))
+ (#set! injection.combined))
 
 ((comment) @injection.language
  .
  (expression_statement
-   (string) @injection.content)
+   (string (string_content) @injection.content))
  (#lua-match? @injection.language "language=[%w_]+")
  (#gsub! @injection.language ".*language=([%w_]+).*" "%1")
- (#set! injection.include-children))
+ (#set! injection.combined))
 
 ((assignment
    left: (identifier) @_name
-   right: (string) @injection.content)
+   right: (string (string_content) @injection.content))
  (#lua-match? @_name "[sS][qQ][lL]$")
  (#set! injection.language "sql")
- (#set! injection.include-children))
+ (#set! injection.combined))
 
 ((assignment
    left: (identifier) @_name
-   right: (string) @injection.content)
+   right: (string (string_content) @injection.content))
  (#lua-match? @_name "[qQ][uU][eE][rR][yY]$")
  (#set! injection.language "sql")
- (#set! injection.include-children))
+ (#set! injection.combined))
 
 ((assignment
    left: (identifier) @_name
-   right: (string) @injection.content)
+   right: (string (string_content) @injection.content))
  (#lua-match? @_name "[jJ][sS][oO][nN]$")
  (#set! injection.language "json")
- (#set! injection.include-children))
+ (#set! injection.combined))
 
 ((assignment
    left: (identifier) @_name
-   right: (string) @injection.content)
+   right: (string (string_content) @injection.content))
  (#lua-match? @_name "[hH][tT][mM][lL]$")
  (#set! injection.language "html")
- (#set! injection.include-children))
+ (#set! injection.combined))
 
 ((assignment
    left: (identifier) @_name
-   right: (string) @injection.content)
+   right: (string (string_content) @injection.content))
  (#lua-match? @_name "[xX][mM][lL]$")
  (#set! injection.language "xml")
- (#set! injection.include-children))
+ (#set! injection.combined))
 
 ((assignment
    left: (identifier) @_name
-   right: (string) @injection.content)
+   right: (string (string_content) @injection.content))
  (#lua-match? @_name "[yY][aA]?[mM][lL]$")
  (#set! injection.language "yaml")
- (#set! injection.include-children))
+ (#set! injection.combined))
 
 ((assignment
    left: (identifier) @_name
-   right: (string) @injection.content)
+   right: (string (string_content) @injection.content))
  (#lua-match? @_name "[cC][sS][sS]$")
  (#set! injection.language "css")
- (#set! injection.include-children))
+ (#set! injection.combined))
 
 ((assignment
    left: (identifier) @_name
-   right: (string) @injection.content)
+   right: (string (string_content) @injection.content))
  (#lua-match? @_name "[jJ][sS]$")
  (#set! injection.language "javascript")
- (#set! injection.include-children))
+ (#set! injection.combined))
 ]]
 
 local function read_file(path)
