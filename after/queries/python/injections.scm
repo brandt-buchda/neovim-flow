@@ -24,7 +24,6 @@
  (#lua-match? @injection.language "language=[%w_]+")
  (#gsub! @injection.language ".*language=([%w_]+).*" "%1"))
 
-; Same, but for bare string expressions (e.g. docstrings, return values)
 ((comment) @injection.language
  .
  (expression_statement
@@ -33,57 +32,60 @@
  (#gsub! @injection.language ".*language=([%w_]+).*" "%1"))
 
 ; --- Name-based heuristics ----------------------------------------------------
+; Match identifiers whose final word (after the last underscore) is the tag,
+; so both SQL= / _SOME_SQL / some_sql / SOME_SQL_QUERY work.
+
 ; *_sql / *_query -> sql
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "_[sS][qQ][lL]$")
+ (#lua-match? @_name "[sS][qQ][lL]$")
  (#set! injection.language "sql"))
 
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "_[qQ]uery$")
+ (#lua-match? @_name "[qQ][uU][eE][rR][yY]$")
  (#set! injection.language "sql"))
 
 ; *_json -> json
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "_[jJ][sS][oO][nN]$")
+ (#lua-match? @_name "[jJ][sS][oO][nN]$")
  (#set! injection.language "json"))
 
 ; *_html -> html
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "_[hH][tT][mM][lL]$")
+ (#lua-match? @_name "[hH][tT][mM][lL]$")
  (#set! injection.language "html"))
 
 ; *_xml -> xml
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "_[xX][mM][lL]$")
+ (#lua-match? @_name "[xX][mM][lL]$")
  (#set! injection.language "xml"))
 
 ; *_yaml / *_yml -> yaml
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "_[yY][aA]?[mM][lL]$")
+ (#lua-match? @_name "[yY][aA]?[mM][lL]$")
  (#set! injection.language "yaml"))
 
 ; *_css -> css
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "_[cC][sS][sS]$")
+ (#lua-match? @_name "[cC][sS][sS]$")
  (#set! injection.language "css"))
 
 ; *_js -> javascript
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "_[jJ][sS]$")
+ (#lua-match? @_name "[jJ][sS]$")
  (#set! injection.language "javascript"))
