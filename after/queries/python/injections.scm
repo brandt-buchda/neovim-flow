@@ -21,71 +21,82 @@
        (string (string_content) @injection.content)
        (concatenated_string (string (string_content) @injection.content))
      ]))
- (#lua-match? @injection.language "language=[%w_]+")
- (#gsub! @injection.language ".*language=([%w_]+).*" "%1"))
+ (#match? @injection.language "language=[%w_]+")
+ (#gsub! @injection.language ".*language=([%w_]+).*" "%1")
+ (#set! injection.combined))
 
 ((comment) @injection.language
  .
  (expression_statement
    (string (string_content) @injection.content))
- (#lua-match? @injection.language "language=[%w_]+")
- (#gsub! @injection.language ".*language=([%w_]+).*" "%1"))
+ (#match? @injection.language "language=[%w_]+")
+ (#gsub! @injection.language ".*language=([%w_]+).*" "%1")
+ (#set! injection.combined))
 
 ; --- Name-based heuristics ----------------------------------------------------
-; Match identifiers whose final word (after the last underscore) is the tag,
-; so both SQL= / _SOME_SQL / some_sql / SOME_SQL_QUERY work.
+; Using injection.combined so that triple-quoted strings, which may contain
+; multiple string_content chunks split by escape sequences / interpolation,
+; are treated as a single injected block.
 
 ; *_sql / *_query -> sql
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "[sS][qQ][lL]$")
- (#set! injection.language "sql"))
+ (#match? @_name "[sS][qQ][lL]$")
+ (#set! injection.language "sql")
+ (#set! injection.combined))
 
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "[qQ][uU][eE][rR][yY]$")
- (#set! injection.language "sql"))
+ (#match? @_name "[qQ][uU][eE][rR][yY]$")
+ (#set! injection.language "sql")
+ (#set! injection.combined))
 
 ; *_json -> json
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "[jJ][sS][oO][nN]$")
- (#set! injection.language "json"))
+ (#match? @_name "[jJ][sS][oO][nN]$")
+ (#set! injection.language "json")
+ (#set! injection.combined))
 
 ; *_html -> html
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "[hH][tT][mM][lL]$")
- (#set! injection.language "html"))
+ (#match? @_name "[hH][tT][mM][lL]$")
+ (#set! injection.language "html")
+ (#set! injection.combined))
 
 ; *_xml -> xml
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "[xX][mM][lL]$")
- (#set! injection.language "xml"))
+ (#match? @_name "[xX][mM][lL]$")
+ (#set! injection.language "xml")
+ (#set! injection.combined))
 
 ; *_yaml / *_yml -> yaml
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "[yY][aA]?[mM][lL]$")
- (#set! injection.language "yaml"))
+ (#match? @_name "[yY][aA]?[mM][lL]$")
+ (#set! injection.language "yaml")
+ (#set! injection.combined))
 
 ; *_css -> css
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "[cC][sS][sS]$")
- (#set! injection.language "css"))
+ (#match? @_name "[cC][sS][sS]$")
+ (#set! injection.language "css")
+ (#set! injection.combined))
 
 ; *_js -> javascript
 ((assignment
    left: (identifier) @_name
    right: (string (string_content) @injection.content))
- (#lua-match? @_name "[jJ][sS]$")
- (#set! injection.language "javascript"))
+ (#match? @_name "[jJ][sS]$")
+ (#set! injection.language "javascript")
+ (#set! injection.combined))
