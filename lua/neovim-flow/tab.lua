@@ -104,6 +104,7 @@ function M.delete_current()
     if choice ~= 'yes' then return end
     vim.cmd('tabclose!')
     local ok, err = worktree.remove(path, root)
+    worktree.forget(name)
     if not ok then
       util.err(err)
       return

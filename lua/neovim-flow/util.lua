@@ -25,6 +25,18 @@ function M.is_git_repo()
   return M.repo_root() ~= nil
 end
 
+function M.git_common_dir()
+  local root = M.repo_root()
+  if not root then return nil end
+  local r = M.run({ 'git', 'rev-parse', '--git-common-dir' }, { cwd = root })
+  if r.code ~= 0 then return nil end
+  local g = vim.trim(r.stdout)
+  if g:sub(1, 1) == '/' or g:match('^%a:') then
+    return g
+  end
+  return root .. '/' .. g
+end
+
 function M.ensure_exclude(repo_root, pattern)
   local exclude_path = repo_root .. '/.git/info/exclude'
   local f = io.open(exclude_path, 'r')

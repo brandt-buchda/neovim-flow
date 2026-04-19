@@ -1,4 +1,5 @@
 local util = require('neovim-flow.util')
+local state = require('neovim-flow.state')
 
 local M = {}
 
@@ -45,13 +46,15 @@ function M.create(name)
 
   local existing = find_worktree(root, path)
   if existing then
-    return {
+    local result = {
       path = path,
       branch = (existing.branch or branch):gsub('^refs/heads/', ''),
       name = clean,
       root = root,
       existed = true,
     }
+    state.upsert(clean, { path = result.path, branch = result.branch })
+    return result
   end
 
   util.notify('fetching origin...')
@@ -63,6 +66,7 @@ function M.create(name)
   local elsewhere = find_worktree_by_branch(root, branch)
   if elsewhere then
     util.notify('reusing existing worktree at ' .. elsewhere.path)
+    state.upsert(clean, { path = elsewhere.path, branch = branch })
     return {
       path = elsewhere.path,
       branch = branch,
@@ -97,7 +101,12 @@ function M.create(name)
     end
   end
 
+  state.upsert(clean, { path = path, branch = branch })
   return { path = path, branch = branch, name = clean, root = root, existed = false }
+end
+
+function M.forget(name)
+  state.remove(name)
 end
 
 function M.remove(path, root)
@@ -148,19 +157,37 @@ function M.list_agents(root)
   root = root or util.repo_root()
   if not root then return {} end
   local prefix = root .. '/.worktrees/'
-  local agents = {}
+  local live_paths = {}
   for _, wt in ipairs(M.list(root)) do
-    if wt.path:sub(1, #prefix) == prefix then
-      local name = wt.path:sub(#prefix + 1)
-      local branch = (wt.branch or ''):gsub('^refs/heads/', '')
+    live_paths[wt.path] = (wt.branch or ''):gsub('^refs/heads/', '')
+  end
+
+  local agents = {}
+  local seen = {}
+
+  for name, entry in pairs(state.load()) do
+    if live_paths[entry.path] ~= nil then
       table.insert(agents, {
-        path = wt.path,
+        path = entry.path,
         name = name,
+        branch = entry.branch or live_paths[entry.path],
+        root = root,
+      })
+      seen[entry.path] = true
+    end
+  end
+
+  for path, branch in pairs(live_paths) do
+    if not seen[path] and path:sub(1, #prefix) == prefix then
+      table.insert(agents, {
+        path = path,
+        name = path:sub(#prefix + 1),
         branch = branch,
         root = root,
       })
     end
   end
+
   return agents
 end
 

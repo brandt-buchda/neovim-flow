@@ -1,10 +1,18 @@
 local M = {}
 
-function M.spawn(_worktree_path, opts)
+local function has_session(cwd)
+  local home = vim.fn.expand('~')
+  local encoded = cwd:gsub('[/\\:]', '-')
+  local dir = home .. '/.claude/projects/' .. encoded
+  if vim.fn.isdirectory(dir) == 0 then return false end
+  return #vim.fn.glob(dir .. '/*.jsonl', false, true) > 0
+end
+
+function M.spawn(worktree_path, opts)
   opts = opts or {}
   vim.cmd('botright vsplit')
-  local cmd = opts.resume and 'terminal claude --continue' or 'terminal claude'
-  vim.cmd(cmd)
+  local resume = opts.resume and worktree_path and has_session(worktree_path)
+  vim.cmd(resume and 'terminal claude --continue' or 'terminal claude')
   vim.t.neovim_flow_term_buf = vim.api.nvim_get_current_buf()
   vim.cmd('startinsert')
   return vim.t.neovim_flow_term_buf
