@@ -27,6 +27,10 @@ function M.setup(_)
     M.resume()
   end, { desc = 'neovim-flow: resume an existing worktree' })
 
+  vim.api.nvim_create_user_command('NFPrune', function()
+    M.prune()
+  end, { desc = 'neovim-flow: prune stale worktrees' })
+
   vim.api.nvim_create_user_command('NFFocus', function()
     agent.focus()
   end, { desc = 'neovim-flow: focus agent terminal' })
@@ -140,11 +144,17 @@ function M.resume()
     return
   end
   local agents = worktree.list_agents(root)
-  local orphans = {}
+  local orphans, stale = {}, 0
   for _, wt in ipairs(agents) do
-    if not tab_for_worktree(wt.path) then
+    if vim.fn.isdirectory(wt.path) == 0 then
+      stale = stale + 1
+    elseif not tab_for_worktree(wt.path) then
       table.insert(orphans, wt)
     end
+  end
+  if stale > 0 then
+    worktree.prune(root)
+    util.notify('pruned ' .. stale .. ' stale worktree(s)')
   end
   if #orphans == 0 then
     util.notify('no worktrees to resume')
@@ -156,6 +166,20 @@ function M.resume()
   }, function(choice)
     if choice then open_tab(choice, true) end
   end)
+end
+
+function M.prune()
+  local root = util.repo_root()
+  if not root then
+    util.err('not a git repository')
+    return
+  end
+  local ok, err = worktree.prune(root)
+  if not ok then
+    util.err(err)
+    return
+  end
+  util.notify('pruned stale worktrees')
 end
 
 function M.next_agent_tab(dir)

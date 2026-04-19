@@ -71,12 +71,26 @@ function M.create(name)
 end
 
 function M.remove(path, root)
-  local result = util.run(
-    { 'git', 'worktree', 'remove', '--force', path },
-    { cwd = root }
-  )
-  if result.code ~= 0 then
-    return false, result.stderr or 'worktree remove failed'
+  if vim.fn.isdirectory(path) == 1 then
+    local result = util.run(
+      { 'git', 'worktree', 'remove', '--force', path },
+      { cwd = root }
+    )
+    if result.code == 0 then
+      return true
+    end
+  end
+  local prune = util.run({ 'git', 'worktree', 'prune' }, { cwd = root })
+  if prune.code ~= 0 then
+    return false, prune.stderr or 'worktree prune failed'
+  end
+  return true
+end
+
+function M.prune(root)
+  local r = util.run({ 'git', 'worktree', 'prune' }, { cwd = root })
+  if r.code ~= 0 then
+    return false, r.stderr or 'worktree prune failed'
   end
   return true
 end
