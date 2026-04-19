@@ -33,6 +33,28 @@ function M.focus()
   return false
 end
 
+function M.toggle()
+  local buf = vim.t.neovim_flow_term_buf
+  if buf and vim.api.nvim_buf_is_valid(buf) then
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_get_buf(win) == buf then
+        vim.api.nvim_win_close(win, false)
+        return
+      end
+    end
+    vim.cmd('botright vsplit')
+    vim.api.nvim_win_set_buf(0, buf)
+    vim.cmd('startinsert')
+    return
+  end
+  local wt = vim.t.neovim_flow_worktree
+  if not wt or wt == '' then
+    vim.notify('[neovim-flow] not in an agent tab', vim.log.levels.ERROR)
+    return
+  end
+  M.spawn(wt, { resume = true })
+end
+
 function M.unfocus()
   local term_buf = vim.t.neovim_flow_term_buf
   if not term_buf then return end

@@ -11,6 +11,13 @@ local function is_agent_tab(tabpage)
 end
 
 function M.setup(_)
+  vim.o.tabline = '%!v:lua.require("neovim-flow.tab").tabline()'
+  vim.o.showtabline = 2
+
+  vim.api.nvim_create_user_command('NFRename', function(opts)
+    M.rename_current(opts.args ~= '' and opts.args or nil)
+  end, { nargs = '?', desc = 'neovim-flow: rename current agent tab' })
+
   vim.api.nvim_create_user_command('NFNew', function(opts)
     M.new(opts.args ~= '' and opts.args or nil)
   end, { nargs = '?', desc = 'neovim-flow: new agent tab' })
@@ -38,6 +45,10 @@ function M.setup(_)
   vim.api.nvim_create_user_command('NFUnfocus', function()
     agent.unfocus()
   end, { desc = 'neovim-flow: back to code window' })
+
+  vim.api.nvim_create_user_command('NFToggle', function()
+    agent.toggle()
+  end, { desc = 'neovim-flow: toggle agent terminal' })
 end
 
 local function tab_for_worktree(path)
@@ -202,5 +213,46 @@ function M.next_agent_tab(dir)
 end
 
 M.is_agent_tab = is_agent_tab
+
+function M.tabline()
+  local parts = {}
+  local current = vim.api.nvim_get_current_tabpage()
+  for i, tp in ipairs(vim.api.nvim_list_tabpages()) do
+    local hl = tp == current and '%#TabLineSel#' or '%#TabLine#'
+    local label
+    if is_agent_tab(tp) then
+      local ok, name = pcall(vim.api.nvim_tabpage_get_var, tp, 'neovim_flow_name')
+      label = ok and name or 'agent'
+      label = ' ' .. label .. ' '
+    else
+      local win = vim.api.nvim_tabpage_get_win(tp)
+      local buf = vim.api.nvim_win_get_buf(win)
+      local bname = vim.api.nvim_buf_get_name(buf)
+      label = bname == '' and '[No Name]' or vim.fn.fnamemodify(bname, ':t')
+      label = (' %d: %s '):format(i, label)
+    end
+    table.insert(parts, hl .. '%' .. i .. 'T' .. label)
+  end
+  table.insert(parts, '%#TabLineFill#%T')
+  return table.concat(parts)
+end
+
+function M.rename_current(name)
+  if not is_agent_tab() then
+    util.err('current tab is not an agent tab')
+    return
+  end
+  if not name or name == '' then
+    vim.ui.input({ prompt = 'tab name: ', default = vim.t.neovim_flow_name }, function(input)
+      if input and input ~= '' then
+        vim.t.neovim_flow_name = input
+        vim.cmd('redrawtabline')
+      end
+    end)
+    return
+  end
+  vim.t.neovim_flow_name = name
+  vim.cmd('redrawtabline')
+end
 
 return M
