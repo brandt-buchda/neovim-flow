@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(NVIM_APPNAME=neovim-flow nvim --headless -c \"lua print\\(type\\(require\\('neovim-flow.session'\\).save\\)\\)\" -c \"qa\")",
-      "Bash(NVIM_APPNAME=neovim-flow nvim --headless -c \"lua print\\('save:', type\\(require\\('neovim-flow.session'\\).save\\), 'restore:', type\\(require\\('neovim-flow.session'\\).restore\\)\\)\" -c \"qa\")"
-    ]
-  }
-}

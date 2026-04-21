@@ -42,7 +42,9 @@ local function clear_dir()
   local dir = session_dir()
   if not dir or vim.fn.isdirectory(dir) == 0 then return end
   for _, entry in ipairs(vim.fn.glob(dir .. '/*', false, true)) do
-    vim.fn.delete(entry)
+    if not entry:match('debug%.log$') then
+      vim.fn.delete(entry)
+    end
   end
 end
 
@@ -76,41 +78,70 @@ local function tab_has_real_buffer(tp)
   return false
 end
 
-function M.save()
-  local root = util.repo_root()
-  if not root then return end
+local function debug_log(msg)
   local dir = session_dir()
   if not dir then return end
-
-  clear_dir()
   ensure_dir(dir)
+  local f = io.open(dir .. '/debug.log', 'a')
+  if not f then return end
+  f:write(os.date('%Y-%m-%d %H:%M:%S') .. ' ' .. tostring(msg) .. '\n')
+  f:close()
+end
+
+function M.save()
+  local root = util.repo_root()
+  if not root then
+    debug_log('save: no repo root')
+    return
+  end
+  local dir = session_dir()
+  if not dir then
+    debug_log('save: no session dir')
+    return
+  end
+
+  ensure_dir(dir)
+  debug_log('save: starting, root=' .. root)
+  clear_dir()
 
   local tabs = {}
   local current = vim.api.nvim_get_current_tabpage()
   local active_idx = 1
+  local all_tabs = vim.api.nvim_list_tabpages()
+  debug_log('save: ' .. #all_tabs .. ' tab(s) open')
 
-  for i, tp in ipairs(vim.api.nvim_list_tabpages()) do
+  for i, tp in ipairs(all_tabs) do
     if tp == current then active_idx = #tabs + 1 end
-    if is_agent_tab(tp) then
-      local wpath = vim.api.nvim_tabpage_get_var(tp, 'neovim_flow_worktree')
+    local is_agent = is_agent_tab(tp)
+    local ok_wt, wpath = pcall(vim.api.nvim_tabpage_get_var, tp, 'neovim_flow_worktree')
+    debug_log(string.format('  tab %d: agent=%s wt=%s', i, tostring(is_agent), tostring(ok_wt and wpath or 'none')))
+    if is_agent then
       local ok_name, name = pcall(vim.api.nvim_tabpage_get_var, tp, 'neovim_flow_name')
-      if wpath and wpath ~= '' then
+      if ok_wt and wpath and wpath ~= '' then
+        local layout = dir .. '/tab-' .. (#tabs + 1) .. '.vim'
+        local ok = save_tab_layout(tp, layout)
+        debug_log('    agent tab layout save: ' .. tostring(ok))
         table.insert(tabs, {
           kind = 'agent',
           worktree = wpath,
           name = ok_name and name or nil,
+          layout = ok and layout or nil,
         })
       end
     elseif tab_has_real_buffer(tp) then
       local layout = dir .. '/tab-' .. (#tabs + 1) .. '.vim'
-      if save_tab_layout(tp, layout) then
+      local ok = save_tab_layout(tp, layout)
+      debug_log('    normal tab layout save: ' .. tostring(ok))
+      if ok then
         table.insert(tabs, { kind = 'normal', layout = layout })
       end
     end
   end
 
+  debug_log('save: captured ' .. #tabs .. ' tab(s)')
+
   if #tabs == 0 then
-    clear_dir()
+    debug_log('save: bailed, nothing to save (preserving existing meta)')
     return
   end
 
@@ -120,6 +151,7 @@ function M.save()
     active = active_idx,
     tabs = tabs,
   })
+  debug_log('save: wrote meta.json')
 end
 
 local function restore_normal_tab(layout_file, is_first)
@@ -132,7 +164,7 @@ local function restore_normal_tab(layout_file, is_first)
   vim.o.sessionoptions = saved_so
 end
 
-local function restore_agent_tab(wt, saved_name, is_first)
+local function restore_agent_tab(wt, saved_name, layout_file, is_first)
   local agent = require('neovim-flow.agent')
   if not is_first then
     vim.cmd('tabnew')
@@ -142,7 +174,14 @@ local function restore_agent_tab(wt, saved_name, is_first)
   vim.t.neovim_flow_name = saved_name or wt.name
   vim.t.neovim_flow_branch = wt.branch
   vim.t.neovim_flow_root = wt.root
-  vim.cmd('Explore')
+  if layout_file and vim.fn.filereadable(layout_file) == 1 then
+    local saved_so = vim.o.sessionoptions
+    vim.o.sessionoptions = 'blank,folds,help,winsize'
+    pcall(vim.cmd, 'silent! source ' .. vim.fn.fnameescape(layout_file))
+    vim.o.sessionoptions = saved_so
+  else
+    vim.cmd('Explore')
+  end
   agent.spawn(wt.path, { resume = true })
 end
 
@@ -153,7 +192,7 @@ function M.restore()
   end
 
   local root = util.repo_root()
-  if not root or root ~= meta.root then return false end
+  if not root then return false end
 
   local wts_by_path = {}
   for _, wt in ipairs(worktree.list_agents(root)) do
@@ -167,7 +206,7 @@ function M.restore()
     if t.kind == 'agent' then
       local wt = wts_by_path[t.worktree]
       if wt then
-        restore_agent_tab(wt, t.name, first)
+        restore_agent_tab(wt, t.name, t.layout, first)
         first = false
         restored = restored + 1
       end
@@ -198,10 +237,10 @@ end
 function M.should_autoload()
   if vim.fn.argc() > 0 then return false end
   local meta = read_json(meta_path())
-  if not meta then return false end
-  local root = util.repo_root()
-  if not root or root ~= meta.root then return false end
-  return true
+  if not meta or type(meta.tabs) ~= 'table' or #meta.tabs == 0 then
+    return false
+  end
+  return util.repo_root() ~= nil
 end
 
 function M.setup()
