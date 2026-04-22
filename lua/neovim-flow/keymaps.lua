@@ -1,10 +1,13 @@
 local tab = require('neovim-flow.tab')
 local agent = require('neovim-flow.agent')
+local picker = require('neovim-flow.picker')
 
 local M = {}
 
 function M.apply(_)
   local map = vim.keymap.set
+
+  map('n', '<leader>pf', function() picker.find_files() end,     { desc = 'picker: find files' })
 
   map('n', '<leader>an', function() tab.new() end,               { desc = 'agent: new tab/worktree' })
   map('n', '<leader>ad', function() tab.delete_current() end,    { desc = 'agent: delete current' })

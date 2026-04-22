@@ -22,6 +22,7 @@ function M.setup(_)
   local specs = {
     require('neovim-flow.style').spec,
     require('neovim-flow.treesitter').spec,
+    require('neovim-flow.picker').spec,
   }
   for _, s in ipairs(require('neovim-flow.lsp').specs) do
     table.insert(specs, s)
