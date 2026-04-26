@@ -1,6 +1,7 @@
 local tab = require('neovim-flow.tab')
 local agent = require('neovim-flow.agent')
 local picker = require('neovim-flow.picker')
+local diff = require('neovim-flow.diff')
 
 local M = {}
 
@@ -17,6 +18,7 @@ function M.apply(_)
   map('n', '<leader>af', function() agent.focus() end,           { desc = 'agent: focus terminal' })
   map('n', '<leader>ab', function() agent.unfocus() end,         { desc = 'agent: back to code' })
   map('n', '<leader>at', function() agent.toggle() end,          { desc = 'agent: toggle terminal' })
+  map('n', '<leader>av', function() diff.toggle() end,           { desc = 'agent: toggle diff view' })
   map('n', ']a',         function() tab.next_agent_tab(1) end,   { desc = 'agent: next tab' })
   map('n', '[a',         function() tab.next_agent_tab(-1) end,  { desc = 'agent: prev tab' })
 

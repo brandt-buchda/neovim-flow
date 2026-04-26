@@ -23,6 +23,7 @@ function M.setup(_)
     require('neovim-flow.style').spec,
     require('neovim-flow.treesitter').spec,
     require('neovim-flow.picker').spec,
+    require('neovim-flow.diff').spec,
   }
   for _, s in ipairs(require('neovim-flow.lsp').specs) do
     table.insert(specs, s)

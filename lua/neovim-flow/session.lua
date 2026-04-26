@@ -42,7 +42,7 @@ local function clear_dir()
   local dir = session_dir()
   if not dir or vim.fn.isdirectory(dir) == 0 then return end
   for _, entry in ipairs(vim.fn.glob(dir .. '/*', false, true)) do
-    if not entry:match('debug%.log$') then
+    if not entry:match('debug%.log$') and not entry:match('diff%-snapshots$') then
       vim.fn.delete(entry)
     end
   end
@@ -117,15 +117,26 @@ function M.save()
     debug_log(string.format('  tab %d: agent=%s wt=%s', i, tostring(is_agent), tostring(ok_wt and wpath or 'none')))
     if is_agent then
       local ok_name, name = pcall(vim.api.nvim_tabpage_get_var, tp, 'neovim_flow_name')
+      local ok_view, view = pcall(vim.api.nvim_tabpage_get_var, tp, 'neovim_flow_view')
+      local ok_snap, snap = pcall(vim.api.nvim_tabpage_get_var, tp, 'neovim_flow_diff_snapshot')
       if ok_wt and wpath and wpath ~= '' then
+        local in_diff = ok_view and view == 'diff'
         local layout = dir .. '/tab-' .. (#tabs + 1) .. '.vim'
-        local ok = save_tab_layout(tp, layout)
-        debug_log('    agent tab layout save: ' .. tostring(ok))
+        local ok = false
+        if not in_diff then
+          ok = save_tab_layout(tp, layout)
+          debug_log('    agent tab layout save: ' .. tostring(ok))
+        end
+        local saved_layout = ok and layout or nil
+        if in_diff and ok_snap and snap and snap ~= '' and vim.fn.filereadable(snap) == 1 then
+          saved_layout = snap
+        end
         table.insert(tabs, {
           kind = 'agent',
           worktree = wpath,
           name = ok_name and name or nil,
-          layout = ok and layout or nil,
+          layout = saved_layout,
+          view = in_diff and 'diff' or 'agent',
         })
       end
     elseif tab_has_real_buffer(tp) then
@@ -164,8 +175,9 @@ local function restore_normal_tab(layout_file, is_first)
   vim.o.sessionoptions = saved_so
 end
 
-local function restore_agent_tab(wt, saved_name, layout_file, is_first)
+local function restore_agent_tab(wt, saved_name, layout_file, view, is_first)
   local agent = require('neovim-flow.agent')
+  local diff = require('neovim-flow.diff')
   if not is_first then
     vim.cmd('tabnew')
   end
@@ -174,15 +186,24 @@ local function restore_agent_tab(wt, saved_name, layout_file, is_first)
   vim.t.neovim_flow_name = saved_name or wt.name
   vim.t.neovim_flow_branch = wt.branch
   vim.t.neovim_flow_root = wt.root
-  if layout_file and vim.fn.filereadable(layout_file) == 1 then
-    local saved_so = vim.o.sessionoptions
-    vim.o.sessionoptions = 'blank,folds,help,winsize'
-    pcall(vim.cmd, 'silent! source ' .. vim.fn.fnameescape(layout_file))
-    vim.o.sessionoptions = saved_so
+  if view == 'diff' then
+    if layout_file and vim.fn.filereadable(layout_file) == 1 then
+      diff.set_snapshot(layout_file)
+    end
+    diff.set_view('agent')
+    diff.open()
   else
-    vim.cmd('Explore')
+    if layout_file and vim.fn.filereadable(layout_file) == 1 then
+      local saved_so = vim.o.sessionoptions
+      vim.o.sessionoptions = 'blank,folds,help,winsize'
+      pcall(vim.cmd, 'silent! source ' .. vim.fn.fnameescape(layout_file))
+      vim.o.sessionoptions = saved_so
+    else
+      vim.cmd('Explore')
+    end
+    agent.spawn(wt.path, { resume = true })
+    diff.set_view('agent')
   end
-  agent.spawn(wt.path, { resume = true })
 end
 
 function M.restore()
@@ -206,7 +227,7 @@ function M.restore()
     if t.kind == 'agent' then
       local wt = wts_by_path[t.worktree]
       if wt then
-        restore_agent_tab(wt, t.name, t.layout, first)
+        restore_agent_tab(wt, t.name, t.layout, t.view, first)
         first = false
         restored = restored + 1
       end
